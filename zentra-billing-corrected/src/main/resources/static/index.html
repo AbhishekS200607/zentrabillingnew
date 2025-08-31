@@ -1,0 +1,1437 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zentra - Inventory Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
+    <style>
+        .viewport canvas, .viewport video {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        #scanner-container.hidden {
+            display: none;
+        }
+        #scanner-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        #barcode-scanner {
+            width: 640px;
+            height: 480px;
+            position: relative;
+        }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            color: white;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+            transform: translateY(20px);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast-success { background-color: #28a745; }
+        .toast-error { background-color: #dc3545; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <div class="flex">
+        <div id="sidebar" class="w-64 bg-gray-800 min-h-screen p-4 flex flex-col">
+            <div>
+                <h1 class="text-2xl font-bold text-blue-400">Zentra</h1>
+                <p class="text-gray-400 text-sm">Inventory Management</p>
+            </div>
+            <nav class="space-y-2 mt-8">
+                <a href="#" onclick="showSection('overview')" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <ion-icon name="analytics-outline"></ion-icon>
+                    <span>Overview</span>
+                </a>
+                <a href="#" onclick="showSection('billing')" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <ion-icon name="receipt-outline"></ion-icon>
+                    <span>Billing</span>
+                </a>
+                <a href="#" onclick="showSection('customers')" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <ion-icon name="people-outline"></ion-icon>
+                    <span>Customers</span>
+                </a>
+                <a href="#" onclick="showSection('inventory')" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <ion-icon name="cube-outline"></ion-icon>
+                    <span>Inventory</span>
+                </a>
+                <a href="#" onclick="showSection('suppliers')" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <ion-icon name="business-outline"></ion-icon>
+                    <span>Suppliers</span>
+                </a>
+                <a href="#" onclick="showSection('expenses')" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <ion-icon name="card-outline"></ion-icon>
+                    <span>Expenses</span>
+                </a>
+                <a href="#" onclick="showSection('settings')" class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-700 transition-colors">
+                    <ion-icon name="settings-outline"></ion-icon>
+                    <span>Settings</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="flex-1 p-6 h-screen overflow-y-auto">
+            <div id="overview" class="section">
+                <h2 class="text-3xl font-bold mb-6">Dashboard Overview</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-400 text-sm">Today's Revenue</p>
+                                <p id="todayRevenue" class="text-2xl font-bold text-green-400">₹0</p>
+                            </div>
+                            <ion-icon name="trending-up-outline" class="text-green-400 text-2xl"></ion-icon>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-400 text-sm">Monthly Revenue</p>
+                                <p id="monthlyRevenue" class="text-2xl font-bold text-blue-400">₹0</p>
+                            </div>
+                            <ion-icon name="calendar-outline" class="text-blue-400 text-2xl"></ion-icon>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-400 text-sm">Today's Profit</p>
+                                <p id="todayProfit" class="text-2xl font-bold text-purple-400">₹0</p>
+                            </div>
+                            <ion-icon name="cash-outline" class="text-purple-400 text-2xl"></ion-icon>
+                        </div>
+                    </div>
+                    <div class="bg-gray-800 p-6 rounded-lg">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-gray-400 text-sm">Low Stock Items</p>
+                                <p id="lowStockCount" class="text-2xl font-bold text-red-400">0</p>
+                            </div>
+                            <ion-icon name="warning-outline" class="text-red-400 text-2xl"></ion-icon>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-4">Low Stock Alerts</h3>
+                    <div id="lowStockTable" class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="p-2">Product</th>
+                                    <th class="p-2">Current Stock</th>
+                                    <th class="p-2">Threshold</th>
+                                    <th class="p-2">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lowStockTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="billing" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold">Billing</h2>
+                    <div class="space-x-2">
+                        <button onclick="startScanner('billing')" class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg">Scan Barcode</button>
+                        <button onclick="showInvoiceModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Create Invoice</button>
+                    </div>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-4">Recent Invoices</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="p-2">Invoice #</th>
+                                    <th class="p-2">Date</th>
+                                    <th class="p-2">Customer</th>
+                                    <th class="p-2">Total</th>
+                                    <th class="p-2">Status</th>
+                                    <th class="p-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoicesTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="customers" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold">Customers</h2>
+                    <button onclick="showCustomerModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Add Customer</button>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="p-2">Name</th>
+                                    <th class="p-2">Phone</th>
+                                    <th class="p-2">Email</th>
+                                    <th class="p-2">Address</th>
+                                    <th class="p-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customersTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="inventory" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold">Inventory</h2>
+                    <div>
+                        <input type="text" id="inventorySearch" placeholder="Search product..." class="p-2 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500 mr-2">
+                        <button onclick="startScanner('inventory')" class="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg mr-2">Scan</button>
+                        <button onclick="showProductModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Add Product</button>
+                    </div>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="p-2">Name</th>
+                                    <th class="p-2">Category</th>
+                                    <th class="p-2">Barcode</th>
+                                    <th class="p-2">Buying Price</th>
+                                    <th class="p-2">Selling Price</th>
+                                    <th class="p-2">Stock</th>
+                                    <th class="p-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="suppliers" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold">Suppliers</h2>
+                    <button onclick="showSupplierModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Add Supplier</button>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="p-2">Name</th>
+                                    <th class="p-2">Phone</th>
+                                    <th class="p-2">Email</th>
+                                    <th class="p-2">Total Products</th>
+                                    <th class="p-2">Total Profit</th>
+                                    <th class="p-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="suppliersTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="expenses" class="section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold">Expenses</h2>
+                    <button onclick="showExpenseModal()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Add Expense</button>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b border-gray-700">
+                                    <th class="p-2">Description</th>
+                                    <th class="p-2">Category</th>
+                                    <th class="p-2">Amount</th>
+                                    <th class="p-2">Date</th>
+                                    <th class="p-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expensesTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings" class="section hidden">
+                <h2 class="text-3xl font-bold mb-6">Settings</h2>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-4">Business Information</h3>
+                    <form id="settingsForm" class="space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Business Name</label>
+                                <input type="text" id="businessName" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">GSTIN</label>
+                                <input type="text" id="gstin" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Phone</label>
+                                <input type="text" id="businessPhone" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Email</label>
+                                <input type="email" id="businessEmail" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium mb-2">Address</label>
+                                <textarea id="businessAddress" rows="3" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-2">Default Tax Rate (%)</label>
+                                <input type="number" id="defaultTaxRate" step="0.01" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                            </div>
+                        </div>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg">Save Settings</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="scanner-container" class="hidden">
+        <div id="barcode-scanner" class="viewport"></div>
+        <button onclick="stopScanner()" class="absolute bottom-10 bg-red-600 p-3 rounded-lg mt-4">Close Scanner</button>
+    </div>
+
+    <div id="productModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-xl font-semibold mb-4">Add/Edit Product</h3>
+            <form id="productForm" class="space-y-4">
+                <input type="hidden" id="productId">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Product Name</label>
+                    <input type="text" id="productName" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Category</label>
+                    <input type="text" id="productCategory" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Barcode</label>
+                    <input type="text" id="productBarcode" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Buying Price</label>
+                        <input type="number" id="productCostPrice" step="0.01" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Selling Price</label>
+                        <input type="number" id="productSellingPrice" step="0.01" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Stock</label>
+                    <input type="number" id="productStock" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Save</button>
+                    <button type="button" onclick="hideProductModal()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="customerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-xl font-semibold mb-4">Add/Edit Customer</h3>
+            <form id="customerForm" class="space-y-4">
+                <input type="hidden" id="customerId">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Customer Name</label>
+                    <input type="text" id="customerName" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Phone</label>
+                    <input type="text" id="customerPhone" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Email</label>
+                    <input type="email" id="customerEmail" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Address</label>
+                    <textarea id="customerAddress" rows="3" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500"></textarea>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Save</button>
+                    <button type="button" onclick="hideCustomerModal()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="invoiceModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto">
+            <h3 class="text-xl font-semibold mb-4">Create Invoice</h3>
+            <form id="invoiceForm" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Customer</label>
+                        <div class="flex space-x-2">
+                            <select id="invoiceCustomer" class="flex-1 p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                                <option value="">Walk-in Customer</option>
+                            </select>
+                            <button type="button" onclick="quickAddCustomer()" class="bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg text-sm">+ Add</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">Tax Rate (%)</label>
+                        <input type="number" id="invoiceTaxRate" value="18" step="0.01" oninput="calculateTotals()" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-lg font-semibold mb-2">Items</h4>
+                    <div id="invoiceItems" class="space-y-2">
+                        <div class="invoice-item grid grid-cols-12 gap-2 items-end">
+                            <div class="col-span-5">
+                                <label class="block text-sm font-medium mb-1">Product</label>
+                                <div class="relative">
+                                    <input type="text" class="product-search w-full p-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500" placeholder="Search product name or barcode..." oninput="searchProduct(this)" autocomplete="off">
+                                    <div class="search-results absolute top-full left-0 right-0 bg-gray-700 border border-gray-600 rounded-b max-h-40 overflow-y-auto z-10 hidden"></div>
+                                </div>
+                                <input type="hidden" class="product-id">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium mb-1">Quantity</label>
+                                <input type="number" class="item-quantity w-full p-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500" value="1" min="1" oninput="calculateItemTotal(this)">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium mb-1">Unit Price</label>
+                                <input type="number" class="item-price w-full p-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500" step="0.01" readonly>
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium mb-1">Total</label>
+                                <input type="number" class="item-total w-full p-2 bg-gray-700 rounded border border-gray-600" step="0.01" readonly>
+                            </div>
+                            <div class="col-span-1">
+                                <button type="button" onclick="removeInvoiceItem(this)" class="bg-red-600 hover:bg-red-700 p-2 rounded text-sm">×</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addInvoiceItem()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg mt-2">+ Add Item</button>
+                </div>
+                <div class="bg-gray-700 p-4 rounded-lg">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Subtotal</label>
+                            <input type="number" id="invoiceSubtotal" step="0.01" value="0.00" readonly class="w-full p-3 bg-gray-600 rounded-lg">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-2">Tax Amount</label>
+                            <input type="number" id="invoiceTaxAmount" step="0.01" value="0.00" readonly class="w-full p-3 bg-gray-600 rounded-lg">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-sm font-medium mb-2">Grand Total</label>
+                            <input type="number" id="invoiceGrandTotal" step="0.01" value="0.00" readonly class="w-full p-3 bg-gray-600 rounded-lg text-xl font-bold">
+                        </div>
+                    </div>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-6 py-2 rounded-lg">Create Invoice</button>
+                    <button type="button" onclick="hideInvoiceModal()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="supplierModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-xl font-semibold mb-4">Add/Edit Supplier</h3>
+            <form id="supplierForm" class="space-y-4">
+                <input type="hidden" id="supplierId">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Supplier Name</label>
+                    <input type="text" id="supplierName" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Phone</label>
+                    <input type="text" id="supplierPhone" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Email</label>
+                    <input type="email" id="supplierEmail" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Address</label>
+                    <textarea id="supplierAddress" rows="3" class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500"></textarea>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Save</button>
+                    <button type="button" onclick="hideSupplierModal()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="expenseModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-xl font-semibold mb-4">Add/Edit Expense</h3>
+            <form id="expenseForm" class="space-y-4">
+                <input type="hidden" id="expenseId">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Description</label>
+                    <input type="text" id="expenseDescription" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Category</label>
+                    <select id="expenseCategory" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                        <option value="">Select Category</option>
+                        <option value="Office Supplies">Office Supplies</option>
+                        <option value="Utilities">Utilities</option>
+                        <option value="Marketing">Marketing</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Equipment">Equipment</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Amount</label>
+                    <input type="number" id="expenseAmount" step="0.01" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Date</label>
+                    <input type="date" id="expenseDate" required class="w-full p-3 bg-gray-700 rounded-lg border border-gray-600 focus:border-blue-500">
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg">Save</button>
+                    <button type="button" onclick="hideExpenseModal()" class="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="viewInvoiceModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg w-full max-w-2xl max-h-screen overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold">Invoice Details</h3>
+                <button onclick="hideViewInvoiceModal()" class="text-gray-400 hover:text-white">
+                    <ion-icon name="close-outline" class="text-2xl"></ion-icon>
+                </button>
+            </div>
+            <div id="invoiceDetails"></div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        // Global state variables
+        let products = [];
+        let customers = [];
+        let suppliers = [];
+		let expenses = [];
+        let settings = {};
+        let scannerContext = null;
+
+        const API_BASE = 'http://localhost:8080/api';
+
+        // --- UTILITY FUNCTIONS ---
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const config = {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+            };
+            if (data) {
+                config.body = JSON.stringify(data);
+            }
+            const response = await fetch(`${API_BASE}${endpoint}`, config);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API Error: ${response.status} - ${errorText}`);
+            }
+            if (response.status === 204 || method === 'DELETE') {
+                return;
+            }
+            return response.json();
+        }
+
+        function showToast(message, type = 'success') {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // --- NAVIGATION ---
+        function showSection(sectionName) {
+            document.querySelectorAll('.section').forEach(section => section.classList.add('hidden'));
+            document.getElementById(sectionName).classList.remove('hidden');
+            
+            switch(sectionName) {
+                case 'overview': loadDashboard(); break;
+                case 'billing': loadInvoices(); break;
+                case 'customers': loadCustomers(); break;
+                case 'inventory': loadProducts(); break;
+                case 'suppliers': loadSuppliers(); break;
+                case 'expenses': loadExpenses(); break;
+                case 'settings': loadSettings(); break;
+            }
+        }
+
+        // --- DASHBOARD FUNCTIONS ---
+        async function loadDashboard() {
+            try {
+                const stats = await apiCall('/dashboard/stats');
+                document.getElementById('todayRevenue').textContent = `₹${(stats.todayRevenue || 0).toFixed(2)}`;
+                document.getElementById('monthlyRevenue').textContent = `₹${(stats.monthlyRevenue || 0).toFixed(2)}`;
+                document.getElementById('todayProfit').textContent = `₹${(stats.todayProfit || 0).toFixed(2)}`;
+                document.getElementById('lowStockCount').textContent = stats.lowStockCount || 0;
+                
+                const lowStockProducts = await apiCall('/products/low-stock');
+                loadLowStockTable(lowStockProducts);
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                showToast('Failed to load dashboard data.', 'error');
+            }
+        }
+
+        function loadLowStockTable(products) {
+            const tbody = document.getElementById('lowStockTableBody');
+            tbody.innerHTML = '';
+            if (products.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="p-2 text-center text-gray-400">No low stock items.</td></tr>';
+                return;
+            }
+            products.forEach(product => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="p-2">${product.name}</td>
+                    <td class="p-2">${product.stock}</td>
+                    <td class="p-2">${product.lowStockThreshold}</td>
+                    <td class="p-2"><span class="bg-red-600 px-2 py-1 rounded text-xs">Low Stock</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // --- PRODUCT FUNCTIONS ---
+        async function loadProducts(query = '') {
+            try {
+                const endpoint = query ? `/products/search?q=${encodeURIComponent(query)}` : '/products';
+                products = await apiCall(endpoint);
+                const tbody = document.getElementById('productsTable');
+                tbody.innerHTML = '';
+                
+                products.forEach(product => {
+                    const row = document.createElement('tr');
+                    const stockClass = product.stock <= product.lowStockThreshold ? 'text-red-400' : 'text-green-400';
+                    row.innerHTML = `
+                        <td class="p-2">${product.name}</td>
+                        <td class="p-2">${product.category || '-'}</td>
+                        <td class="p-2">${product.barcode || '-'}</td>
+                        <td class="p-2">₹${product.costPrice || 0}</td>
+                        <td class="p-2">₹${product.sellingPrice || 0}</td>
+                        <td class="p-2 ${stockClass}">${product.stock}</td>
+                        <td class="p-2">
+                            <button onclick="editProduct(${product.id})" class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs mr-1">Edit</button>
+                            <button onclick="deleteProduct(${product.id})" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading products:', error);
+            }
+        }
+
+        function showProductModal(productId = null) {
+            const modal = document.getElementById('productModal');
+            document.getElementById('productForm').reset();
+            document.getElementById('productId').value = '';
+            
+            if (productId) {
+                const product = products.find(p => p.id === productId);
+                if (product) {
+                    document.getElementById('productId').value = product.id;
+                    document.getElementById('productName').value = product.name;
+                    document.getElementById('productCategory').value = product.category || '';
+                    document.getElementById('productBarcode').value = product.barcode || '';
+                    document.getElementById('productCostPrice').value = product.costPrice || '';
+                    document.getElementById('productSellingPrice').value = product.sellingPrice || '';
+                    document.getElementById('productStock').value = product.stock;
+                }
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function hideProductModal() {
+            document.getElementById('productModal').classList.add('hidden');
+        }
+
+        async function saveProduct(event) {
+            event.preventDefault();
+            const productId = document.getElementById('productId').value;
+            const productData = {
+                name: document.getElementById('productName').value,
+                category: document.getElementById('productCategory').value,
+                barcode: document.getElementById('productBarcode').value,
+                costPrice: parseFloat(document.getElementById('productCostPrice').value),
+                sellingPrice: parseFloat(document.getElementById('productSellingPrice').value),
+                price: parseFloat(document.getElementById('productSellingPrice').value),
+                stock: parseInt(document.getElementById('productStock').value),
+            };
+
+            try {
+                if (productId) {
+                    await apiCall(`/products/${productId}`, 'PUT', productData);
+                    showToast('Product updated successfully!');
+                } else {
+                    await apiCall('/products', 'POST', productData);
+                    showToast('Product created successfully!');
+                }
+                hideProductModal();
+                loadProducts();
+                loadDashboard();
+            } catch (error) {
+                console.error('Error saving product:', error);
+                showToast('Error saving product.', 'error');
+            }
+        }
+
+        function editProduct(id) {
+            showProductModal(id);
+        }
+
+        async function deleteProduct(id) {
+            if (confirm('Are you sure you want to delete this product?')) {
+                try {
+                    await apiCall(`/products/${id}`, 'DELETE');
+                    showToast('Product deleted.');
+                    loadProducts();
+                } catch (error) {
+                    showToast('Error deleting product.', 'error');
+                }
+            }
+        }
+
+        // --- CUSTOMER FUNCTIONS ---
+        async function loadCustomers() {
+            try {
+                customers = await apiCall('/customers');
+                const tbody = document.getElementById('customersTable');
+                tbody.innerHTML = '';
+                customers.forEach(customer => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="p-2">${customer.name}</td>
+                        <td class="p-2">${customer.phone || '-'}</td>
+                        <td class="p-2">${customer.email || '-'}</td>
+                        <td class="p-2">${customer.address || '-'}</td>
+                        <td class="p-2">
+                            <button onclick="editCustomer(${customer.id})" class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs mr-1">Edit</button>
+                            <button onclick="deleteCustomer(${customer.id})" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+                updateCustomerDropdown();
+            } catch (error) {
+                console.error('Error loading customers:', error);
+            }
+        }
+
+        function showCustomerModal(customerId = null) {
+            const modal = document.getElementById('customerModal');
+            document.getElementById('customerForm').reset();
+            document.getElementById('customerId').value = '';
+            
+            if (customerId) {
+                const customer = customers.find(c => c.id === customerId);
+                if (customer) {
+                    document.getElementById('customerId').value = customer.id;
+                    document.getElementById('customerName').value = customer.name;
+                    document.getElementById('customerPhone').value = customer.phone || '';
+                    document.getElementById('customerEmail').value = customer.email || '';
+                    document.getElementById('customerAddress').value = customer.address || '';
+                }
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function hideCustomerModal() {
+            document.getElementById('customerModal').classList.add('hidden');
+        }
+
+        async function saveCustomer(event) {
+            event.preventDefault();
+            const customerId = document.getElementById('customerId').value;
+            const customerData = {
+                name: document.getElementById('customerName').value,
+                phone: document.getElementById('customerPhone').value,
+                email: document.getElementById('customerEmail').value,
+                address: document.getElementById('customerAddress').value
+            };
+            try {
+                if (customerId) {
+                    await apiCall(`/customers/${customerId}`, 'PUT', customerData);
+                    showToast('Customer updated.');
+                } else {
+                    await apiCall('/customers', 'POST', customerData);
+                    showToast('Customer created.');
+                }
+                hideCustomerModal();
+                loadCustomers();
+            } catch (error) {
+                showToast('Error saving customer.', 'error');
+            }
+        }
+
+        function editCustomer(id) {
+            showCustomerModal(id);
+        }
+
+        async function deleteCustomer(id) {
+            if (confirm('Are you sure?')) {
+                try {
+                    await apiCall(`/customers/${id}`, 'DELETE');
+                    showToast('Customer deleted.');
+                    loadCustomers();
+                } catch (error) {
+                    showToast('Error deleting customer.', 'error');
+                }
+            }
+        }
+
+        function updateCustomerDropdown() {
+            const select = document.getElementById('invoiceCustomer');
+            select.innerHTML = '<option value="">Walk-in Customer</option>';
+            customers.forEach(customer => {
+                const option = document.createElement('option');
+                option.value = customer.id;
+                option.textContent = `${customer.name} - ${customer.phone || 'No phone'}`;
+                select.appendChild(option);
+            });
+        }
+
+        // --- INVOICE FUNCTIONS ---
+        async function loadInvoices() {
+            try {
+                const invoicesData = await apiCall('/invoices');
+                const invoices = invoicesData.content || invoicesData; 
+                const tbody = document.getElementById('invoicesTable');
+                tbody.innerHTML = '';
+                
+                if (!Array.isArray(invoices) || invoices.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="p-4 text-center">No invoices found</td></tr>';
+                    return;
+                }
+
+                for (const invoice of invoices) {
+                     const customer = invoice.customerId ? customers.find(c => c.id === invoice.customerId) : null;
+                     const customerName = customer ? customer.name : 'Walk-in Customer';
+                     const row = document.createElement('tr');
+                     const markAsPaidButton = invoice.paymentStatus !== 'PAID' 
+                        ? `<button onclick="markAsPaid(${invoice.id})" class="bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs ml-1">Mark as Paid</button>` 
+                        : '';
+                     row.innerHTML = `
+                        <td class="p-2">${invoice.invoiceNumber || 'N/A'}</td>
+                        <td class="p-2">${invoice.invoiceDate || 'N/A'}</td>
+                        <td class="p-2">${customerName}</td>
+                        <td class="p-2">₹${(invoice.grandTotal || 0).toFixed(2)}</td>
+                        <td class="p-2"><span class="${invoice.paymentStatus === 'PAID' ? 'bg-green-600' : 'bg-red-600'} px-2 py-1 rounded text-xs">${invoice.paymentStatus || 'UNPAID'}</span></td>
+                        <td class="p-2">
+                            <button onclick="viewInvoice(${invoice.id})" class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs">View</button>
+                            <button onclick="downloadInvoicePDF(${invoice.id})" class="bg-purple-600 hover:bg-purple-700 px-2 py-1 rounded text-xs ml-1">PDF</button>
+                            <button onclick="deleteInvoice(${invoice.id})" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs ml-1">Delete</button>
+                            ${markAsPaidButton}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            } catch (error) {
+                console.error('Error loading invoices:', error);
+                document.getElementById('invoicesTable').innerHTML = '<tr><td colspan="6" class="p-4 text-center">Error loading invoices</td></tr>';
+            }
+        }
+        
+        async function markAsPaid(id) {
+            if (confirm('Are you sure you want to mark this invoice as paid?')) {
+                try {
+                    // This endpoint needs to be created in InvoiceController
+                    await apiCall(`/invoices/${id}/update-status`, 'POST', { status: 'PAID' });
+                    showToast('Invoice marked as paid.');
+                    loadInvoices();
+                } catch (error) {
+                    console.error('Error updating payment status:', error);
+                    showToast('Error updating payment status.', 'error');
+                }
+            }
+        }
+        
+        async function deleteInvoice(id) {
+            if (confirm('Are you sure? This will delete the invoice and all its items.')) {
+                try {
+                    await apiCall(`/invoices/${id}`, 'DELETE');
+                    showToast('Invoice deleted successfully!');
+                    loadInvoices();
+                    loadDashboard();
+                } catch (error) {
+                    showToast('Failed to delete the invoice.', 'error');
+                }
+            }
+        }
+
+        function showInvoiceModal() {
+            const modal = document.getElementById('invoiceModal');
+            document.getElementById('invoiceForm').reset();
+            const itemsContainer = document.getElementById('invoiceItems');
+            itemsContainer.innerHTML = '';
+            addInvoiceItem(); 
+            calculateTotals();
+            loadCustomers(); // Ensure customers are loaded for the dropdown
+            document.getElementById('invoiceTaxRate').value = settings.defaultTaxRate || 18;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function hideInvoiceModal() {
+            document.getElementById('invoiceModal').classList.add('hidden');
+        }
+
+        async function searchProduct(input) {
+            const query = input.value.trim();
+            const resultsDiv = input.nextElementSibling;
+            
+            if (query.length < 2) {
+                resultsDiv.classList.add('hidden');
+                return;
+            }
+            try {
+                const searchResults = await apiCall(`/products/search?q=${encodeURIComponent(query)}`);
+                resultsDiv.innerHTML = '';
+                if (searchResults.length > 0) {
+                    searchResults.slice(0, 5).forEach(product => {
+                        const div = document.createElement('div');
+                        div.className = 'p-2 hover:bg-gray-600 cursor-pointer border-b border-gray-600';
+                        div.innerHTML = `${product.name} - ₹${product.sellingPrice || product.price} - Stock: ${product.stock}`;
+                        div.onclick = () => selectProduct(input, product);
+                        resultsDiv.appendChild(div);
+                    });
+                    resultsDiv.classList.remove('hidden');
+                } else {
+                    resultsDiv.classList.add('hidden');
+                }
+            } catch (error) {
+                resultsDiv.classList.add('hidden');
+            }
+        }
+
+        function selectProduct(input, product) {
+            const item = input.closest('.invoice-item');
+            input.value = product.name;
+            item.querySelector('.product-id').value = product.id;
+            item.querySelector('.item-price').value = product.sellingPrice || product.price;
+            input.nextElementSibling.classList.add('hidden');
+            calculateItemTotal(item.querySelector('.item-quantity'));
+        }
+
+        function calculateItemTotal(quantityInput) {
+            const item = quantityInput.closest('.invoice-item');
+            const quantity = parseFloat(quantityInput.value) || 0;
+            const price = parseFloat(item.querySelector('.item-price').value) || 0;
+            item.querySelector('.item-total').value = (quantity * price).toFixed(2);
+            calculateTotals();
+        }
+
+        function calculateTotals() {
+            let subtotal = 0;
+            document.querySelectorAll('.invoice-item').forEach(item => {
+                subtotal += parseFloat(item.querySelector('.item-total').value) || 0;
+            });
+            const taxRate = parseFloat(document.getElementById('invoiceTaxRate').value) || 0;
+            const taxAmount = (subtotal * taxRate) / 100;
+            const grandTotal = subtotal + taxAmount;
+            
+            document.getElementById('invoiceSubtotal').value = subtotal.toFixed(2);
+            document.getElementById('invoiceTaxAmount').value = taxAmount.toFixed(2);
+            document.getElementById('invoiceGrandTotal').value = grandTotal.toFixed(2);
+        }
+
+        function addInvoiceItem() {
+            const container = document.getElementById('invoiceItems');
+            const newItem = document.createElement('div');
+            newItem.className = 'invoice-item grid grid-cols-12 gap-2 items-end';
+            newItem.innerHTML = `
+                <div class="col-span-5"><div class="relative"><input type="text" class="product-search w-full p-2 bg-gray-700 rounded border border-gray-600" placeholder="Search product..." oninput="searchProduct(this)"><div class="search-results absolute top-full left-0 right-0 bg-gray-700 border-gray-600 rounded-b z-10 hidden"></div></div><input type="hidden" class="product-id"></div>
+                <div class="col-span-2"><input type="number" class="item-quantity w-full p-2 bg-gray-700 rounded border border-gray-600" value="1" min="1" oninput="calculateItemTotal(this)"></div>
+                <div class="col-span-2"><input type="number" class="item-price w-full p-2 bg-gray-700 rounded border border-gray-600" readonly></div>
+                <div class="col-span-2"><input type="number" class="item-total w-full p-2 bg-gray-700 rounded border border-gray-600" readonly></div>
+                <div class="col-span-1"><button type="button" onclick="removeInvoiceItem(this)" class="bg-red-600 hover:bg-red-700 p-2 rounded text-sm">×</button></div>`;
+            container.appendChild(newItem);
+        }
+
+        function removeInvoiceItem(button) {
+            const container = document.getElementById('invoiceItems');
+            if (container.children.length > 1) {
+                button.closest('.invoice-item').remove();
+                calculateTotals();
+            }
+        }
+        
+        async function saveInvoice(event) {
+            event.preventDefault();
+            const subtotal = parseFloat(document.getElementById('invoiceSubtotal').value);
+            if (subtotal <= 0) {
+                showToast('Please add at least one product.', 'error');
+                return;
+            }
+            const invoiceItemsData = Array.from(document.querySelectorAll('.invoice-item')).map(itemEl => ({
+                productId: parseInt(itemEl.querySelector('.product-id').value),
+                quantity: parseInt(itemEl.querySelector('.item-quantity').value),
+                unitPrice: parseFloat(itemEl.querySelector('.item-price').value),
+                total: parseFloat(itemEl.querySelector('.item-total').value)
+            })).filter(item => item.productId && item.quantity > 0);
+
+            if (invoiceItemsData.length === 0) {
+                showToast('No valid products in invoice.', 'error');
+                return;
+            }
+            const invoiceData = {
+                customerId: document.getElementById('invoiceCustomer').value || null,
+                subtotal,
+                taxRate: parseFloat(document.getElementById('invoiceTaxRate').value),
+                taxAmount: parseFloat(document.getElementById('invoiceTaxAmount').value),
+                total: subtotal,
+                grandTotal: parseFloat(document.getElementById('invoiceGrandTotal').value)
+            };
+            const fullInvoiceRequest = { invoice: invoiceData, items: invoiceItemsData };
+            
+            try {
+                await apiCall('/invoices', 'POST', fullInvoiceRequest);
+                hideInvoiceModal();
+                loadInvoices();
+                loadDashboard();
+                showToast('Invoice created successfully!');
+            } catch (error) {
+                showToast(`Error creating invoice: ${error.message}`, 'error');
+            }
+        }
+
+        function quickAddCustomer() {
+            const name = prompt('Enter customer name:');
+            if (name) {
+                apiCall('/customers', 'POST', { name, phone: prompt('Enter phone:') || '' })
+                    .then(customer => {
+                        customers.push(customer);
+                        updateCustomerDropdown();
+                        document.getElementById('invoiceCustomer').value = customer.id;
+                        showToast('Customer added.');
+                    })
+                    .catch(error => showToast(`Error adding customer: ${error.message}`, 'error'));
+            }
+        }
+
+        async function viewInvoice(id) {
+            try {
+                const [invoice, items] = await Promise.all([
+                    apiCall(`/invoices/${id}`),
+                    apiCall(`/invoice-items/invoice/${id}`)
+                ]);
+
+                let itemsHtml = items.map(item => {
+                    const product = products.find(p => p.id === item.productId);
+                    return `<tr><td class="py-1">${product ? product.name : 'N/A'}</td><td>${item.quantity}</td><td>₹${item.unitPrice.toFixed(2)}</td><td>₹${item.total.toFixed(2)}</td></tr>`;
+                }).join('');
+
+                document.getElementById('invoiceDetails').innerHTML = `
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><h4 class="font-semibold">Invoice #:</h4><p>${invoice.invoiceNumber}</p></div>
+                            <div><h4 class="font-semibold">Date:</h4><p>${invoice.invoiceDate}</p></div>
+                        </div>
+                        <table class="w-full text-left text-sm"><thead><tr class="border-b border-gray-600"><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+                        <div class="bg-gray-700 p-3 rounded text-sm"><div class="grid grid-cols-2 gap-2 text-right">
+                            <div>Subtotal:</div><div>₹${invoice.subtotal.toFixed(2)}</div>
+                            <div>Tax (${invoice.taxRate.toFixed(2)}%):</div><div>₹${invoice.taxAmount.toFixed(2)}</div>
+                            <div class="col-span-2 border-t border-gray-600 my-1"></div>
+                            <div class="font-bold">Grand Total:</div><div class="font-bold">₹${invoice.grandTotal.toFixed(2)}</div>
+                        </div></div>
+                        <div class="flex space-x-2"><button onclick="downloadInvoicePDF(${id})" class="bg-purple-600 hover:bg-purple-700 px-3 py-1 rounded text-sm">PDF</button></div>
+                    </div>`;
+                
+                document.getElementById('viewInvoiceModal').classList.remove('hidden');
+                document.getElementById('viewInvoiceModal').classList.add('flex');
+            } catch (error) {
+                showToast(`Error loading invoice: ${error.message}`, 'error');
+            }
+        }
+
+        function hideViewInvoiceModal() {
+            document.getElementById('viewInvoiceModal').classList.add('hidden');
+        }
+
+        async function downloadInvoicePDF(id) {
+            try {
+                const [invoice, items] = await Promise.all([
+                    apiCall(`/invoices/${id}`),
+                    apiCall(`/invoice-items/invoice/${id}`)
+                ]);
+                let customer = { name: 'Walk-in Customer' };
+                if (invoice.customerId) {
+                    customer = customers.find(c => c.id === invoice.customerId) || await apiCall(`/customers/${invoice.customerId}`);
+                }
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(20);
+                doc.text('INVOICE', 140, 20);
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(10);
+                doc.text(settings.businessName || 'Your Company', 20, 30);
+                doc.text(settings.address || 'Company Address', 20, 35);
+                doc.text(settings.phone || 'Company Phone', 20, 40);
+                doc.text(settings.email || 'Company Email', 20, 45);
+                doc.text('Bill To:', 20, 60);
+                doc.text(customer.name, 20, 65);
+                doc.text(customer.address || 'N/A', 20, 70);
+                doc.text(customer.phone || 'N/A', 20, 75);
+                doc.text(`Invoice #: ${invoice.invoiceNumber}`, 140, 40);
+                doc.text(`Date: ${invoice.invoiceDate}`, 140, 45);
+                const tableColumn = ["#", "Product Name", "Quantity", "Unit Price", "Total"];
+                const tableRows = [];
+                items.forEach((item, index) => {
+                    const product = products.find(p => p.id === item.productId);
+                    tableRows.push([index + 1, product ? product.name : 'N/A', item.quantity, `₹${item.unitPrice.toFixed(2)}`, `₹${item.total.toFixed(2)}`]);
+                });
+                doc.autoTable({ head: [tableColumn], body: tableRows, startY: 85, theme: 'striped', headStyles: { fillColor: [22, 160, 133] } });
+                let finalY = doc.lastAutoTable.finalY + 15;
+                doc.setFontSize(12);
+                doc.text(`Subtotal: ₹${invoice.subtotal.toFixed(2)}`, 140, finalY);
+                doc.text(`Tax (${invoice.taxRate.toFixed(2)}%): ₹${invoice.taxAmount.toFixed(2)}`, 140, finalY + 7);
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Grand Total: ₹${invoice.grandTotal.toFixed(2)}`, 140, finalY + 14);
+                doc.setFontSize(10);
+                doc.text('Thank you for your business!', 20, doc.internal.pageSize.height - 10);
+                doc.save(`invoice-${invoice.invoiceNumber}.pdf`);
+            } catch (error) {
+                showToast(`Error generating PDF: ${error.message}`, 'error');
+            }
+        }
+        
+        // --- SUPPLIER, EXPENSE, SETTINGS FUNCTIONS ---
+        async function loadSuppliers() {
+            try {
+                suppliers = await apiCall('/suppliers');
+                const tbody = document.getElementById('suppliersTable');
+                tbody.innerHTML = '';
+                for (const supplier of suppliers) {
+                    const analytics = await apiCall(`/suppliers/${supplier.id}/analytics`);
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="p-2">${supplier.name}</td>
+                        <td class="p-2">${supplier.phone || '-'}</td>
+                        <td class="p-2">${supplier.email || '-'}</td>
+                        <td class="p-2">${analytics.totalProducts}</td>
+                        <td class="p-2">₹${(analytics.totalProfit || 0).toFixed(2)}</td>
+                        <td class="p-2">
+                            <button onclick="editSupplier(${supplier.id})" class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs mr-1">Edit</button>
+                            <button onclick="deleteSupplier(${supplier.id})" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                }
+            } catch (error) {
+                console.error('Error loading suppliers:', error);
+            }
+        }
+		
+        function showSupplierModal(id = null) {
+            const modal = document.getElementById('supplierModal');
+            document.getElementById('supplierForm').reset();
+            document.getElementById('supplierId').value = '';
+            
+            if (id) {
+                const supplier = suppliers.find(s => s.id === id);
+                if (supplier) {
+                    document.getElementById('supplierId').value = supplier.id;
+                    document.getElementById('supplierName').value = supplier.name;
+                    document.getElementById('supplierPhone').value = supplier.phone || '';
+                    document.getElementById('supplierEmail').value = supplier.email || '';
+                    document.getElementById('supplierAddress').value = supplier.address || '';
+                }
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+		
+        function hideSupplierModal() {
+            document.getElementById('supplierModal').classList.add('hidden');
+        }
+		
+        async function saveSupplier(event) {
+            event.preventDefault();
+            const supplierId = document.getElementById('supplierId').value;
+            const supplierData = {
+                name: document.getElementById('supplierName').value,
+                phone: document.getElementById('supplierPhone').value,
+                email: document.getElementById('supplierEmail').value,
+                address: document.getElementById('supplierAddress').value
+            };
+            try {
+                if (supplierId) {
+                    await apiCall(`/suppliers/${supplierId}`, 'PUT', supplierData);
+                    showToast('Supplier updated.');
+                } else {
+                    await apiCall('/suppliers', 'POST', supplierData);
+                    showToast('Supplier created.');
+                }
+                hideSupplierModal();
+                loadSuppliers();
+            } catch (error) {
+                showToast('Error saving supplier.', 'error');
+            }
+        }
+		
+		function editSupplier(id) {
+			showSupplierModal(id);
+		}
+		
+        async function deleteSupplier(id) {
+            if (confirm('Are you sure?')) {
+                try {
+                    await apiCall(`/suppliers/${id}`, 'DELETE');
+                    showToast('Supplier deleted.');
+                    loadSuppliers();
+                } catch (error) {
+                    showToast('Error deleting supplier.', 'error');
+                }
+            }
+        }
+
+        async function loadExpenses() {
+            try {
+                expenses = await apiCall('/expenses');
+                const tbody = document.getElementById('expensesTable');
+                tbody.innerHTML = '';
+                expenses.forEach(expense => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="p-2">${expense.description}</td>
+                        <td class="p-2">${expense.category}</td>
+                        <td class="p-2">₹${expense.amount.toFixed(2)}</td>
+                        <td class="p-2">${expense.expenseDate}</td>
+                        <td class="p-2">
+                            <button onclick="editExpense(${expense.id})" class="bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs mr-1">Edit</button>
+                            <button onclick="deleteExpense(${expense.id})" class="bg-red-600 hover:bg-red-700 px-2 py-1 rounded text-xs">Delete</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading expenses:', error);
+            }
+        }
+		
+        function showExpenseModal(id = null) {
+            const modal = document.getElementById('expenseModal');
+            document.getElementById('expenseForm').reset();
+            document.getElementById('expenseId').value = '';
+            
+            if (id) {
+                const expense = expenses.find(e => e.id === id);
+                if (expense) {
+                    document.getElementById('expenseId').value = expense.id;
+                    document.getElementById('expenseDescription').value = expense.description;
+                    document.getElementById('expenseCategory').value = expense.category;
+                    document.getElementById('expenseAmount').value = expense.amount;
+                    document.getElementById('expenseDate').value = expense.expenseDate;
+                }
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+		
+        function hideExpenseModal() {
+            document.getElementById('expenseModal').classList.add('hidden');
+        }
+		
+        async function saveExpense(event) {
+            event.preventDefault();
+            const expenseId = document.getElementById('expenseId').value;
+            const expenseData = {
+                description: document.getElementById('expenseDescription').value,
+                category: document.getElementById('expenseCategory').value,
+                amount: parseFloat(document.getElementById('expenseAmount').value),
+                expenseDate: document.getElementById('expenseDate').value
+            };
+            try {
+                if (expenseId) {
+                    await apiCall(`/expenses/${expenseId}`, 'PUT', expenseData);
+                    showToast('Expense updated.');
+                } else {
+                    await apiCall('/expenses', 'POST', expenseData);
+                    showToast('Expense created.');
+                }
+                hideExpenseModal();
+                loadExpenses();
+				loadDashboard();
+            } catch (error) {
+                showToast('Error saving expense.', 'error');
+            }
+        }
+		
+		function editExpense(id) {
+			showExpenseModal(id);
+		}
+		
+        async function deleteExpense(id) {
+            if (confirm('Are you sure?')) {
+                try {
+                    await apiCall(`/expenses/${id}`, 'DELETE');
+                    showToast('Expense deleted.');
+                    loadExpenses();
+					loadDashboard();
+                } catch (error) {
+                    showToast('Error deleting expense.', 'error');
+                }
+            }
+        }
+
+        async function loadSettings() {
+             try {
+                const settingsList = await apiCall('/settings');
+                if (settingsList.length > 0) {
+                    settings = settingsList[0];
+                    document.getElementById('businessName').value = settings.businessName || '';
+                    document.getElementById('gstin').value = settings.gstin || '';
+                    document.getElementById('businessPhone').value = settings.phone || '';
+                    document.getElementById('businessEmail').value = settings.email || '';
+                    document.getElementById('businessAddress').value = settings.address || '';
+                    document.getElementById('defaultTaxRate').value = settings.defaultTaxRate || 18;
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+        async function saveSettings(event) {
+            event.preventDefault();
+            const settingsData = {
+                id: settings.id || null,
+                businessName: document.getElementById('businessName').value,
+                gstin: document.getElementById('gstin').value,
+                phone: document.getElementById('businessPhone').value,
+                email: document.getElementById('businessEmail').value,
+                address: document.getElementById('businessAddress').value,
+                defaultTaxRate: parseFloat(document.getElementById('defaultTaxRate').value)
+            };
+            try {
+                if (settings.id) {
+                    await apiCall(`/settings/${settings.id}`, 'PUT', settingsData);
+                } else {
+                    await apiCall('/settings', 'POST', settingsData);
+                }
+                showToast('Settings saved successfully!');
+                loadSettings();
+            } catch (error) {
+                showToast(`Error saving settings: ${error.message}`, 'error');
+            }
+        }
+
+        // --- BARCODE SCANNER FUNCTIONS ---
+        function startScanner(context) {
+            scannerContext = context;
+            Quagga.init({
+                inputStream: { name: "Live", type: "LiveStream", target: document.querySelector('#barcode-scanner'), constraints: { width: 640, height: 480, facingMode: "environment" } },
+                decoder: { readers: ["ean_reader", "code_128_reader", "upc_reader"] },
+            }, (err) => {
+                if (err) {
+                    showToast('Error initializing scanner.', 'error');
+                    return;
+                }
+                Quagga.start();
+                document.getElementById('scanner-container').classList.remove('hidden');
+            });
+        }
+
+        Quagga.onDetected((result) => {
+            const code = result.codeResult.code;
+            stopScanner();
+            if (scannerContext === 'billing') {
+                if (!document.getElementById('invoiceModal').classList.contains('hidden')) {
+                    const firstEmptyItem = Array.from(document.querySelectorAll('.invoice-item')).find(item => !item.querySelector('.product-id').value);
+                    const searchInput = firstEmptyItem ? firstEmptyItem.querySelector('.product-search') : document.querySelector('.product-search');
+                    searchInput.value = code;
+                    searchProduct(searchInput);
+                } else {
+                    showToast('Please open "Create Invoice" to add scanned items.', 'error');
+                }
+            } else if (scannerContext === 'inventory') {
+                document.getElementById('inventorySearch').value = code;
+                loadProducts(code);
+            }
+        });
+
+        function stopScanner() {
+            if (Quagga) {
+               Quagga.stop();
+            }
+            document.getElementById('scanner-container').classList.add('hidden');
+        }
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('productForm').addEventListener('submit', saveProduct);
+            document.getElementById('customerForm').addEventListener('submit', saveCustomer);
+            document.getElementById('invoiceForm').addEventListener('submit', saveInvoice);
+            document.getElementById('supplierForm').addEventListener('submit', saveSupplier);
+            document.getElementById('expenseForm').addEventListener('submit', saveExpense);
+            document.getElementById('settingsForm').addEventListener('submit', saveSettings);
+            document.getElementById('inventorySearch').addEventListener('input', (e) => loadProducts(e.target.value));
+
+            document.addEventListener('click', (event) => {
+                if (!event.target.closest('.relative')) {
+                    document.querySelectorAll('.search-results').forEach(div => div.classList.add('hidden'));
+                }
+            });
+
+            Promise.all([loadProducts(), loadCustomers(), loadSettings()]).then(() => {
+                 showSection('overview');
+            });
+        });
+    </script>
+</body>
+</html>
+```
